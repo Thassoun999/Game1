@@ -126,10 +126,11 @@ int main(int argc, char *argv[])
 		//For Vertex Triangle creation
 		
 		float vertices0[] = { 0.5f, -0.5f, 0.0f, 0.5f, -0.5f, -0.5f };         
-		glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices0);        
-		glEnableVertexAttribArray(program.positionAttribute);        
+		//Set to program 2
+		glVertexAttribPointer(program2.positionAttribute, 2, GL_FLOAT, false, 0, vertices0);        
+		glEnableVertexAttribArray(program2.positionAttribute);        
 		glDrawArrays(GL_TRIANGLES, 0, 3);         
-		glDisableVertexAttribArray(program.positionAttribute);     
+		glDisableVertexAttribArray(program2.positionAttribute);     
 		
 		program2.SetColor(0.2f, 0.8f, 0.4f, 1.0f);
 
