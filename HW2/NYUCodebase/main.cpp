@@ -33,6 +33,7 @@ void Setup();
 void ProcessEvents();
 void Update();
 void Render();
+void resetBall();
 bool done = false;
 SDL_Event event;
 int score1 = 0;
@@ -47,23 +48,29 @@ float projectionDepth;
 float projectionWidth;
 float aspectRatio;
 
-float ballPosX1 = 0.05f;
-float ballPosY1 = 0.05f;
-float ballPosX2 = -0.05f;
-float ballPosY2 = -0.05f;
 float angle = 45.0f;
 float ballDirectionX = cos(angle * PI / 180.0f);
 float ballDirectionY = sin(angle * PI / 180.0f);
 
-//Reserve 1 for left
-float direction1UP = 0.3f;
-float direction1DOWN = -0.3f;
+bool player1Won = false;
+bool player2Won = false;
 
-//Reserve 2 for Right
-float direction2UP = 0.3f;
-float direction2DOWN = -0.3f;
 
-int dirswap;
+float leftPaddleY = 0.0f;
+float leftPaddleX = -3.0f;
+
+float rightPaddleY = 0.0f;
+float rightPaddleX = 3.0f;
+
+float ballX = 0.0f;
+float ballY = 0.0f;
+
+//float vertices0[] =  { -0.05f, -0.3f, 0.05f, -0.3f, 0.05f, 0.3f, -0.05f, -0.3f, 0.05f, 0.3f, -0.05f, 0.3f };
+float paddleHeight = 0.6f;
+float paddleWidth = 0.1f;
+
+float ballWidth = 0.1f;
+float ballHeight = 0.1f;
 
 void Setup() {
 	width = 1280;
@@ -119,17 +126,15 @@ void ProcessEvents() {
 
 		else if (event.type == SDL_KEYDOWN) {
 			if (event.key.keysym.scancode == SDL_SCANCODE_SPACE) {
-				// DO AN ACTION WHEN SPACE IS PRESSED!
-				ballPosX1 = 0.05f;
-				ballPosY1 = 0.05f;
-				ballPosX2 = -0.05f;
-				ballPosY2 = -0.05f;
+				// DO AN ACTION WHEN SPACE IS PRESSED! Reset the game!
+				resetBall();
 				score1 = 0;
 				score2 = 0;
+				player1Won = false;
+				player2Won = false;
 				angle = 45.0f;
 				ballDirectionX = cos(angle * PI / 180.0f);
 				ballDirectionY = sin(angle * PI / 180.0f);
-				ballModelMatrix = glm::mat4(1.0f);
 			}	
 		}
 	}
@@ -141,72 +146,74 @@ void ProcessEvents() {
 	const Uint8 *keys = SDL_GetKeyboardState(NULL);
 	if (keys[SDL_SCANCODE_UP]) {
 		// right rectangle go up
-		if(direction2UP + 3*elapsed <= projectionHeight){
-			
-			direction2UP += 3 * elapsed;
-			direction2DOWN += 3 * elapsed;
-			modelMatrix2 = glm::translate(modelMatrix2, glm::vec3(0.0f, 3 * elapsed, 0.0f));
+		if((rightPaddleY + paddleHeight / 2) <= projectionHeight){
+			rightPaddleY += 3 * elapsed;
 		}
 		
 	}
 	else if (keys[SDL_SCANCODE_DOWN]) {
 		// right rectangle go down
-		if (direction2DOWN - 3 * elapsed >= -projectionHeight) {
-			direction2UP -= 3 * elapsed;
-			direction2DOWN -= 3 * elapsed;
-			modelMatrix2 = glm::translate(modelMatrix2, glm::vec3(0.0f, -(3 * elapsed), 0.0f));
+		if ((rightPaddleY - paddleHeight / 2) >= -projectionHeight) {
+			rightPaddleY -= 3 * elapsed;
 		}
 		
 	}
 
 	if (keys[SDL_SCANCODE_W]) {
 		// left rectangle go up
-		if (direction1UP + 3 * elapsed <= projectionHeight) {
-			direction1UP += 3 * elapsed;
-			direction1DOWN += 3 * elapsed;
-			modelMatrix1 = glm::translate(modelMatrix1, glm::vec3(0.0f, 3 * elapsed, 0.0f));
+		if ((leftPaddleY + paddleHeight / 2) <= projectionHeight) {
+			leftPaddleY += 3 * elapsed;
 		}
 	}
 	else if (keys[SDL_SCANCODE_S]) {
 		// left rectangle go down
-		if (direction1DOWN - 3 * elapsed >= -projectionHeight) {
-			direction1UP -= 3 * elapsed;
-			direction1DOWN -= 3 * elapsed;
-			modelMatrix1 = glm::translate(modelMatrix1, glm::vec3(0.0f, -(3 * elapsed), 0.0f));
+		if ((leftPaddleY - paddleHeight / 2) >= -projectionHeight) {
+			leftPaddleY -= 3 * elapsed;
 		}
 	}
 }
 
+void resetBall() {
+	ballX = 0.0f;
+	ballY = 0.0f;
+}
+
+
 void Update() {
+
+	//move ball
+	ballX += ballDirectionX * elapsed * 5.0f;
+	ballY +=  ballDirectionY * elapsed * 5.0f;
 
 	//Track ball movement and deal with collisions!!! + Wins
 
 	//Wall Collisions
-	if ((ballPosY1 + ballDirectionY * elapsed * 4.0f) > projectionHeight) {
+	if (ballY + (ballHeight / 2) > projectionHeight) {
 		if (angle == 45.0f) {
 			angle = 315.0f;
 		}
 		else {
 			angle = 225.0f;
 		}
-		ballDirectionX = cos(angle * PI / 180.0f);
 		ballDirectionY = sin(angle * PI / 180.0f);
 	}
-	else if ((ballPosY2 + ballDirectionY * elapsed * 4.0f) < -projectionHeight) {
+	else if (ballY - (ballHeight / 2) < -projectionHeight) {
 		if (angle == 225.0f) {
 			angle = 135.0f;
 		}
 		else {
 			angle = 45.0f;
 		}
-		ballDirectionX = cos(angle * PI / 180.0f);
 		ballDirectionY = sin(angle * PI / 180.0f);
 	}
 
-	if (ballPosX1 >= projectionWidth) {
+	if (ballX + (ballWidth /2) >= projectionWidth) {
 		score1++;
-		if (score1 == 9) {
+		if (score1 == 3) {
 			std::cout << "Player 1 Wins!" << std::endl;
+			player1Won = true;
+			player2Won = false;
+			
 			score1 = 0;
 			score2 = 0;
 		}
@@ -214,17 +221,18 @@ void Update() {
 		ballDirectionX = cos(angle * PI / 180.0f);
 		ballDirectionY = sin(angle * PI / 180.0f);
 
-		ballPosX1 = 0.05f;
-		ballPosY1 = 0.05f;
-		ballPosX2 = -0.05f;
-		ballPosY2 = -0.05f;
-
-		ballModelMatrix = glm::mat4(1.0f);
+		
+		resetBall();
+		
 	}
-	else if (ballPosX2 <= -projectionWidth) {
+	else if (ballX - (ballWidth / 2) <= -projectionWidth) {
 		score2++;
-		if (score2 == 9) {
+		if (score2 == 3) {
 			std::cout << "Player 2 Wins!" << std::endl;
+
+			player2Won = true;
+			player1Won = false;
+
 			score1 = 0;
 			score2 = 0;
 		}
@@ -232,41 +240,21 @@ void Update() {
 		ballDirectionX = cos(angle * PI / 180.0f);
 		ballDirectionY = sin(angle * PI / 180.0f);
 
-		ballPosX1 = 0.05f;
-		ballPosY1 = 0.05f;
-		ballPosX2 = -0.05f;
-		ballPosY2 = -0.05f;
+		resetBall();
 
-		ballModelMatrix = glm::mat4(1.0f);
+		
 	}
 
 	//Paddle Collisions
 
-	//Used as a pre-check
-	float direction_X = ballDirectionX * elapsed * 4.0f;
-	float direction_Y = ballDirectionY * elapsed * 4.0f;
-
-	//Paddles
-	float h1 = 0.6f;
-	float w1 = 0.05f;
-
-	//Ball
-	float h2 = 0.1f;
-	float w2 = 0.1f;
-
 	//Distance Check Paddle Left then Right
 	
 	//Check and make sure which is rectangle 1 and which is rectangle 2
-	float xdistLeft = abs(((ballPosX1 + direction_X) + (ballPosX2 + direction_X)) / 2.0f - (-2.975f));
-	float ydistLeft = abs(((ballPosY1 + direction_Y) + (ballPosY2 + direction_Y)) / 2.0f - (direction1UP + direction1DOWN) / 2.0f);
-	float xdistRight = abs(((ballPosX1 + direction_X) + (ballPosX2 + direction_X)) / 2.0f - (2.975f));
-	float ydistRight = abs(((ballPosY1 + direction_Y) + (ballPosY2 + direction_Y)) / 2.0f - (direction2UP + direction2DOWN) / 2.0f);
+	float p1left = abs(leftPaddleX - ballX) - ((paddleWidth + ballWidth) / 2.0f);
+	float p2left = abs(leftPaddleY - ballY) - ((paddleHeight + ballHeight) / 2.0f);
 
-	float p1left = xdistLeft - ((w1 + w2) / 2.0f);
-	float p2left = ydistLeft - ((h1 + h2) / 2.0f);
-
-	float p1right = xdistRight - ((w1 + w2) / 2.0f);
-	float p2right = ydistRight - ((h1 + h2) / 2.0f);
+	float p1right = abs(rightPaddleX - ballX) - ((paddleWidth + ballWidth) / 2.0f);
+	float p2right = abs(rightPaddleY - ballY) - ((paddleHeight + ballHeight) / 2.0f);
 
 	if ((p1left < 0 && p2left < 0) || (p1right < 0 && p2right < 0)) {
 		//Check if left or right paddle is being hit!
@@ -288,20 +276,8 @@ void Update() {
 		}
 		ballDirectionX = cos(angle * PI / 180.0f);
 		ballDirectionY = sin(angle * PI / 180.0f);
+
 	}
-
-	
-
-	//Calculation
-	direction_X = ballDirectionX * elapsed * 4.0f;
-	direction_Y = ballDirectionY * elapsed * 4.0f;
-
-	ballModelMatrix = glm::translate(ballModelMatrix, glm::vec3(direction_X, direction_Y, 0.0f));
-
-	ballPosX1 += direction_X;
-	ballPosX2 += direction_X;
-	ballPosY1 += direction_Y;
-	ballPosY2 += direction_Y;
 	
 }
 
@@ -314,24 +290,41 @@ void Render() {
 	program.SetProjectionMatrix(projectionMatrix);
 	program.SetViewMatrix(viewMatrix);
 
-	program.SetColor(0.2f, 0.8f, 0.4f, 1.0f);
+	if (!(player1Won)) {
+		program.SetColor(0.2f, 0.8f, 0.4f, 1.0f);
+	}
+	else {
+		program.SetColor(0.3f, 0.3f, 0.9f, 1.0f);
+	}
+	
+	
 
 	//Rectangle 1
-	float vertices0[] = { -3.0f, -0.3f, -2.95f, -0.3f, -2.95f, 0.3f, -3.0f, -0.3f, -2.95f, 0.3f, -3.0f, 0.3f };
-	//float vertices0[] = { 0.5f, -0.5f, 0.0f, 0.5f, -0.5f, -0.5f };
+	float vertices0[] = { -0.05f, -0.3f, 0.05f, -0.3f, 0.05f, 0.3f, -0.05f, -0.3f, 0.05f, 0.3f, -0.05f, 0.3f };
+	
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices0);
 	glEnableVertexAttribArray(program.positionAttribute);
+	modelMatrix1 = glm::mat4(1.0f);
+	modelMatrix1 = glm::translate(modelMatrix1, glm::vec3(leftPaddleX, leftPaddleY, 0.0f));
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDisableVertexAttribArray(program.positionAttribute);
+	
+	if (!(player2Won)) {
+		program.SetColor(0.2f, 0.8f, 0.4f, 1.0f);
+	}
+	else {
+		program.SetColor(0.3f, 0.3f, 0.9f, 1.0f);
+	}
 
-	program.SetColor(0.2f, 0.8f, 0.4f, 1.0f);
 
 	
 	//Rectangle 2
 	program.SetModelMatrix(modelMatrix2);
-	float vertices1[] = { 3.0f, -0.3f, 2.95f, -0.3f, 2.95f, 0.3f, 3.0f, -0.3f, 2.95f, 0.3f, 3.0f, 0.3f };
+	float vertices1[] = { -0.05f, -0.3f, 0.05f, -0.3f, 0.05f, 0.3f, -0.05f, -0.3f, 0.05f, 0.3f, -0.05f, 0.3f };
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices1);
 	glEnableVertexAttribArray(program.positionAttribute);
+	modelMatrix2 = glm::mat4(1.0f);
+	modelMatrix2 = glm::translate(modelMatrix2, glm::vec3(rightPaddleX, rightPaddleY, 0.0f));
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDisableVertexAttribArray(program.positionAttribute);
 
@@ -342,6 +335,8 @@ void Render() {
 	float vertices2[] = { -0.05f, -0.05f, 0.05f, -0.05f, 0.05f, 0.05f, -0.05f, -0.05f, 0.05f, 0.05f, -0.05f, 0.05f };
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices2);
 	glEnableVertexAttribArray(program.positionAttribute);
+	ballModelMatrix = glm::mat4(1.0f);
+	ballModelMatrix = glm::translate(ballModelMatrix, glm::vec3(ballX, ballY, 0.0f));
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 	glDisableVertexAttribArray(program.positionAttribute);
 
