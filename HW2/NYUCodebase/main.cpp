@@ -21,7 +21,7 @@
 #include "math.h"
 #include <iostream>
 
-class Entity;
+//class Entity;
 SDL_Window* displayWindow;
 ShaderProgram program;
 glm::mat4 projectionMatrix;
