@@ -91,17 +91,27 @@ public:
 class Player : public Entity {
 public:
 	Player(float posX, float posY) : Entity(posX, posY) {
-		friction.x = 0.2f;
-		friction.y = 0.2f;
+		friction.x = 0.64f;
+		friction.y = 0.24f;
+
+		acceleration.x = 4.0f;
+		acceleration.y = 4.0f;
 	}
-	Player() : Entity() {}
+	Player() : Entity() {
+		friction.x = 0.64f;
+		friction.y = 0.24f;
+
+		acceleration.x = 4.0f;
+		acceleration.y = 4.0f;
+	}
 	virtual void setPos(float x, float y) {
 		position.x = x;
 		position.y = y;
 	}
 	virtual void Render(ShaderProgram &program);
 	virtual void Update(float elapsed);
-	//virtual bool CollidesWith(Entity &entity);
+	virtual void CollisionX();
+	virtual void CollisionY();
 };
 
 class Enemy : public Entity {
@@ -110,10 +120,13 @@ public:
 	Enemy() : Entity() {}
 	std::string name;
 	virtual void Render(ShaderProgram &program);
+	virtual void Update(float elapsed);
 	virtual void setPos(float x, float y) {
 		position.x = x;
 		position.y = y;
 	}
+	virtual void CollisionX();
+	virtual void CollisionY();
 	//virtual void Update(float elapsed);
 	//virtual bool CollidesWith(Entity &entity);
 
@@ -132,6 +145,8 @@ public:
 
 };
 
+
+
 float lerp(float v0, float v1, float t);
 
 
@@ -140,7 +155,6 @@ float lerp(float v0, float v1, float t);
 
 bool done = false;
 SDL_Event event;
-//std::vector<std::vector<MapTile>> fileMapTiles;
 Player fileGameHero;
 std::vector<Enemy> fileGameEnemies;
 std::vector<Item> fileGameItems;
@@ -155,14 +169,23 @@ float projectionDepth;
 float elapsed;
 float ticks;
 float lastFrameTicks;
-float accumulator;
-float acceleration_x = 0.2f;
-float acceleration_y = 0.5f;
+float accumulator = 0.0f;
+float timerItem = 0.0f;
+float timerEnemy = 0.0f;
+
+
+bool enemySwitch = false;
+bool itemGot = false;
+bool playerSwitch = false;
+int indexForSprite = 0;
+int itemIndex = 0;
+bool didAJump = false;
+bool landedFromAJump = true;
 
 void inFile(std::string documentName);
 void Setup();
 void ProcessEvents();
-void Update(float elapsed);
+void Update();
 void Render();
 void drawLevelData(unsigned int** levelData);
 GLuint LoadTexture(const char *filepath);
@@ -176,7 +199,8 @@ glm::mat4 modelMatrix;
 glm::mat4 projectionMatrix;
 glm::mat4 viewMatrix;
 
-std::vector<int> staticIndex = { 355, 479, 480, 538, 539, 356, 357, 358, 414, 415, 416, 417, 473, 474, 475, 476, 532, 533, 534, 535, 424, 425, 426, 542, 543, 544, 496, 497, 498, 797, 576, 577, 798, 799, 800, 801, 802, 856, 857, 858, 859, 860, 861, 915, 916, 917, 483, 484, 485 };
+std::vector<int> staticIndex = { 828, 1423, 355, 479, 480, 538, 539, 356, 357, 358, 414, 415, 416, 417, 473, 474, 475, 476, 532, 533, 534, 535, 424, 425, 426, 542, 543, 544, 496, 497, 498, 797, 576, 577, 798, 799, 800, 801, 802, 856, 857, 858, 859, 860, 861, 915, 916, 917, 483, 484, 485 };
+
 
 bool readHeader(std::ifstream &stream) {
 	std::string line;
@@ -205,8 +229,7 @@ bool readHeader(std::ifstream &stream) {
 		for (int i = 0; i < mapHeight; i++) {
 			levelData[i] = new unsigned int[mapWidth];
 		}
-		//std::vector<std::vector<MapTile>> newFileMap(mapHeight, std::vector<MapTile>(mapWidth));
-		//fileMapTiles = newFileMap;
+		
 		return true;
 	}
 
@@ -231,6 +254,8 @@ void readLayerData(std::ifstream &stream) {
 					if (val > 0) {
 						//Tiles in this format are index from 1 not 0
 						levelData[y][x] = val - 1;
+						//Check our val!
+
 					}
 					else {
 						levelData[y][x] = 0;
@@ -336,6 +361,14 @@ void ProcessEvents() {
 		if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
 			done = true;
 		}
+
+		else if (event.type == SDL_KEYDOWN) {
+			if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && fileGameHero.collidedBottom) {
+				fileGameHero.velocity.y += 3.0f;
+				fileGameHero.collidedBottom = false;
+				didAJump = true;
+			}
+		}
 	}
 
 	
@@ -346,32 +379,31 @@ void ProcessEvents() {
 	if (keys[SDL_SCANCODE_RIGHT]) {
 		//Change acceleration here, velocity changes within Update function of our hero
 		//Friction will change in our update function, but only applies to our player!
-		if (fileGameHero.velocity.x <= 5.0f) {
-			fileGameHero.velocity.x += acceleration_x * elapsed;
+		if (!itemGot) {
+			if (fileGameHero.velocity.x <= 20.0f) {
+				fileGameHero.velocity.x += fileGameHero.acceleration.x * elapsed;
+			}
+			playerSwitch = false;
+			indexForSprite++;
+			if (indexForSprite > 2) {
+				indexForSprite = 0;
+			}
 		}
-		
 	}
 	else if (keys[SDL_SCANCODE_LEFT]) {
-		if (fileGameHero.velocity.x >= -5.0f) {
-			fileGameHero.velocity.x -= acceleration_x * elapsed;
-		}
-		
+		if (!itemGot) {
+			if (fileGameHero.velocity.x >= -20.0f) {
+				fileGameHero.velocity.x -= fileGameHero.acceleration.x * elapsed;
+			}
+			playerSwitch = true;
+			indexForSprite++;
+			if (indexForSprite > 2) {
+				indexForSprite = 0;
+			}
+		}	
 	}
 }
 
-/*
-void drawMapSetup(char location, int i, int y) {
-	MapTile tile((float)i, (float)y);
-	int locationint = location - '0';
-	if (std::find(staticIndex.begin(), staticIndex.end(), locationint) != staticIndex.end()) {
-		tile.isStatic = true;
-	}
-	tile.textureID = tilesID;
-	tile.leveli = i;
-	tile.levely = y;
-	fileMapTiles[y][i] = tile;
-}
-*/
 
 
 
@@ -424,14 +456,6 @@ void Setup() {
 		fileGameItems[i].textureID = itemsID;
 	}
 
-	/*
-	for (int y = 0; y < mapHeight; y++) {
-		for (int i = 0;  i < mapWidth; i++) {
-			drawMapSetup(levelData[i][y], i, y);
-		}
-	}
-	*/
-
 }
 
 
@@ -446,44 +470,197 @@ void Render() {
 	drawLevelData(levelData);
 
 	fileGameHero.Render(program);
+	
 	for (size_t i = 0; i < fileGameEnemies.size(); i++) {
 		fileGameEnemies[i].Render(program);
 	}
-	for (size_t i = 0; i < fileGameItems.size(); i++) {
-		fileGameItems[i].Render(program);
-	}
+	
 
-	/*
-	for (size_t y = 0; y < fileMapTiles.size(); y++) {
-		for (size_t i = 0; i < fileMapTiles[y].size(); i++) {
-			fileMapTiles[y][i].Render(program);
+	
+	if (!(itemGot)) {
+		for (size_t i = 0; i < fileGameItems.size(); i++) {
+			fileGameItems[i].Render(program);
 		}
 	}
-	*/
+	
 
 	
 }
 
+void Update() {
+	fileGameHero.Update(elapsed);
+	
+	for (size_t i = 0; i < fileGameEnemies.size(); i++) {
+		fileGameEnemies[i].Update(elapsed);
+	}
+	
+}
+
+//This is fixed!! Apply to enemy!
+void Player::CollisionX() {
+		
+	int worldToTilexLeft = (int) ((position.x - (TILE_SIZE / 2.0f)) / TILE_SIZE);
+	int worldToTilexRight = (int)((position.x + (TILE_SIZE / 2.0f)) / TILE_SIZE);
+	int worldToTiley = (int)((position.y) / -TILE_SIZE);
+	//Collision!!!!
+	if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexLeft]) != staticIndex.end()) {
+		//Player left hit tiled right?
+		float penetration = abs((position.x - TILE_SIZE / 2.0f) - (TILE_SIZE * worldToTilexLeft + TILE_SIZE));
+		position.x += (penetration + 0.002f);
+		collidedLeft = true;
+			
+	}
+	else if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexRight]) != staticIndex.end()) {
+		//Player right hit tiled left?
+		float penetration = abs((TILE_SIZE * worldToTilexRight) - (position.x + TILE_SIZE / 2.0f));
+		position.x -= (penetration + 0.002f);
+		collidedRight = true;
+	}
+}
+
+void Player::CollisionY() {
+	
+	int worldToTileyBottom = (int)((position.y - (TILE_SIZE / 2.0f)) / -TILE_SIZE);
+	int worldToTileyTop = (int)((position.y + (TILE_SIZE / 2.0f)) / -TILE_SIZE);
+	int worldToTilex = (int)((position.x) / TILE_SIZE);
+
+	//Collision with bottom!
+	if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyBottom][worldToTilex]) != staticIndex.end()) {
+		//Player bottom hit tiled top?
+		float penetration = abs((-TILE_SIZE * worldToTileyBottom) - (position.y - TILE_SIZE / 2.0f) );
+		position.y += (penetration + 0.002f);
+		collidedBottom = true;
+
+		if (didAJump) {
+			didAJump = false;
+			landedFromAJump = true;
+		}
+
+	}
+	else if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyTop][worldToTilex]) != staticIndex.end()) {
+		//Player top hit tiled bottom?
+		float penetration = abs((position.y + TILE_SIZE / 2.0f) - (-TILE_SIZE * worldToTileyTop -TILE_SIZE) );
+		position.y -= (penetration + 0.002f);
+		collidedTop = true;
+	}
+		
+}
+
 float lerp(float v0, float v1, float t) {
+	//std::cout << (1.0f - t)*v0 + t * v1 << std::endl;
 	return (1.0f - t)*v0 + t * v1;
 }
 
-
 void Player::Update(float elapsed) {
 	//Friction
-	velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
+ 	velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
 	velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
+	
+
+	//Gravity
+	velocity.y += -0.45f * elapsed;
+
+	//Reset
+	collidedBottom = false;
+	collidedLeft = false;
+	collidedRight = false;
+	collidedTop = false;
 
 	//Position
 	position.y += velocity.y * elapsed;
-	//CollisionY();
+	CollisionY();
+
 	position.x += velocity.x * elapsed;
-	//CollisionX();
+	CollisionX();
+	if (collidedLeft || collidedRight) {
+		velocity.x = 0;
+	}
 
 
 
 
-	//Check for collision!
+	//Check for ItemGot!
+	float p1 = abs(position.x - fileGameItems[0].position.x) - ((TILE_SIZE + TILE_SIZE) / 2.0f);
+	float p2 = abs(position.y - fileGameItems[0].position.y) - ((TILE_SIZE + TILE_SIZE) / 2.0f);
+	if (p1 < 0 && p2 < 0) {
+		itemGot = true;
+	}
+
+
+}
+
+void Enemy::CollisionX() {
+
+	int worldToTilexLeft = (int)((position.x - (TILE_SIZE / 2.0f)) / TILE_SIZE);
+	int worldToTilexRight = (int)((position.x + (TILE_SIZE / 2.0f)) / TILE_SIZE);
+	int worldToTiley = (int)((position.y) / -TILE_SIZE);
+	//Collision!!!!
+	if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexLeft]) != staticIndex.end()) {
+		//Player left hit tiled right?
+		float penetration = abs((position.x - TILE_SIZE / 2.0f) - (TILE_SIZE * worldToTilexLeft + TILE_SIZE));
+		position.x += (penetration + 0.002f);
+		collidedLeft = true;
+
+	}
+	else if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexRight]) != staticIndex.end()) {
+		//Player right hit tiled left?
+		float penetration = abs((TILE_SIZE * worldToTilexRight) - (position.x + TILE_SIZE / 2.0f));
+		position.x -= (penetration + 0.002f);
+		collidedRight = true;
+	}
+}
+
+void Enemy::CollisionY() {
+
+	int worldToTileyBottom = (int)((position.y - (TILE_SIZE / 2.0f)) / -TILE_SIZE);
+	int worldToTileyTop = (int)((position.y + (TILE_SIZE / 2.0f)) / -TILE_SIZE);
+	int worldToTilex = (int)((position.x) / TILE_SIZE);
+
+	//Collision with bottom!
+	if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyBottom][worldToTilex]) != staticIndex.end()) {
+		//Player bottom hit tiled top?
+		float penetration = abs((-TILE_SIZE * worldToTileyBottom) - (position.y - TILE_SIZE / 2.0f));
+		position.y += (penetration + 0.002f);
+		collidedBottom = true;
+
+	}
+	else if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyTop][worldToTilex]) != staticIndex.end()) {
+		//Player top hit tiled bottom?
+		float penetration = abs((position.y + TILE_SIZE / 2.0f) - (-TILE_SIZE * worldToTileyTop - TILE_SIZE));
+		position.y -= (penetration + 0.002f);
+		collidedTop = true;
+	}
+
+}
+
+
+void Enemy::Update(float elapsed) {
+
+	collidedLeft = false;
+	collidedRight = false;
+	collidedTop = false;
+	collidedBottom = false;
+	
+	timerEnemy += elapsed;
+	if (timerEnemy > 5.0f) {
+		
+		timerEnemy = 0.0f;
+		enemySwitch = !enemySwitch;
+	}
+
+	position.y -= 0.5f * elapsed;
+	
+	CollisionY();
+	
+	
+	if (enemySwitch == false) {
+		position.x -= 1.0f * elapsed;
+	}
+	else if(enemySwitch == true) {
+		position.x += 1.0f * elapsed;
+	}
+	CollisionX();
+	
 }
 
 void drawLevelData(unsigned int** levelData) {
@@ -548,13 +725,29 @@ int min(float f1, float f2) {
 	return f1;
 }
 
+int max(float f1, float f2) {
+	if (f1 > f2) return f1;
+	return f2;
+}
+
 void Player::Render(ShaderProgram &program) {
 	glBindTexture(GL_TEXTURE_2D, textureID);
 	std::vector<float> vertexData;
 	std::vector<float> texCoordData;
 
-	float u = (float)(((int)1) % SPRITE_COUNT_X_PLAYER) / (float)SPRITE_COUNT_X_PLAYER;
-	float v = (float)(((int)1) / SPRITE_COUNT_X_PLAYER) / (float)SPRITE_COUNT_Y_PLAYER;
+	if (!(collidedBottom)) {
+		indexForSprite = 4;
+	}
+	else if (landedFromAJump) {
+		indexForSprite = 6;
+		landedFromAJump = false;
+	}
+	
+	if (itemGot) {
+		indexForSprite = 7;
+	}
+	float u = (float)(((int)indexForSprite) % SPRITE_COUNT_X_PLAYER) / (float)SPRITE_COUNT_X_PLAYER;
+	float v = (float)(((int)indexForSprite) / SPRITE_COUNT_X_PLAYER) / (float)SPRITE_COUNT_Y_PLAYER;
 
 	float spriteWidth = 1.0f / (float)SPRITE_COUNT_X_PLAYER;
 	float spriteHeight = 1.0f / (float)SPRITE_COUNT_Y_PLAYER;
@@ -592,9 +785,15 @@ void Player::Render(ShaderProgram &program) {
 	//Translate, Rotate, Scale
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(position.x, position.y, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(TILE_SIZE, TILE_SIZE, 1));
+	if (playerSwitch) {
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(-1.0f, 1.0f, 1.0f));
+	}
 
-	viewMatrix = glm::translate(viewMatrix, glm::vec3(min(-position.x, projectionWidth), min(-position.y, projectionHeight), 0));
-
+	//X, min(max(position.x, level width), -projection width)
+	//Y, min(max(position.y, level height), projection height)
+	//Make sure they are all negative (except projection height)
+	//viewMatrix = glm::translate(viewMatrix, glm::vec3(max(-position.x, -(TILE_SIZE * 128.0f)) , -position.y, 0));
+	viewMatrix = glm::translate(viewMatrix, glm::vec3(-position.x, -position.y, 0));
 
 	program.SetModelMatrix(modelMatrix);
 	program.SetViewMatrix(viewMatrix);
@@ -609,6 +808,8 @@ void Enemy::Render(ShaderProgram &program) {
 	glBindTexture(GL_TEXTURE_2D, textureID);
 	std::vector<float> vertexData;
 	std::vector<float> texCoordData;
+
+
 
 	float u = (float)(((int)0) % SPRITE_COUNT_X_ENEMY) / (float)SPRITE_COUNT_X_ENEMY;
 	float v = (float)(((int)0) / SPRITE_COUNT_X_ENEMY) / (float)SPRITE_COUNT_Y_ENEMY;
@@ -630,13 +831,13 @@ void Enemy::Render(ShaderProgram &program) {
 		});
 
 	texCoordData.insert(texCoordData.end(), {
+		u, v + spriteHeight,
+		u + spriteWidth, v,
 		u, v,
-		u, v + (spriteHeight),
-		u + spriteWidth, v + (spriteHeight),
 
-		u,v,
-		u + spriteWidth, v + (spriteHeight),
-		u + spriteWidth, v
+		u + spriteWidth, v,
+		u, v + spriteHeight,
+		u + spriteWidth, v + spriteHeight
 		});
 
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
@@ -647,10 +848,18 @@ void Enemy::Render(ShaderProgram &program) {
 
 	//Modify modelView here
 	modelMatrix = glm::mat4(1.0f);
+
 	//Translate, Rotate, Scale
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(position.x, position.y, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(TILE_SIZE, TILE_SIZE, 1));
+	if (!enemySwitch) {
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(-1, 1, 1));
+	}
+	
 	program.SetModelMatrix(modelMatrix);
+
+
+	
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -667,8 +876,17 @@ void Item::Render(ShaderProgram &program) {
 	std::vector<float> vertexData;
 	std::vector<float> texCoordData;
 
-	float u = (float)(((int)2) % SPRITE_COUNT_X_ITEM) / (float)SPRITE_COUNT_X_ITEM;
-	float v = (float)(((int)2) / SPRITE_COUNT_X_ITEM) / (float)SPRITE_COUNT_Y_ITEM;
+	timerItem += elapsed;
+	if (timerItem > 0.05f) {
+		itemIndex++;
+		timerItem = 0;
+	}
+	if (itemIndex > 2) {
+		itemIndex = 0;
+	}
+	
+	float u = (float)(((int)itemIndex) % SPRITE_COUNT_X_ITEM) / (float)SPRITE_COUNT_X_ITEM;
+	float v = (float)(((int)itemIndex) / SPRITE_COUNT_X_ITEM) / (float)SPRITE_COUNT_Y_ITEM;
 
 	float spriteWidth = 1.0f / (float)SPRITE_COUNT_X_ITEM;
 	float spriteHeight = 1.0f / (float)SPRITE_COUNT_Y_ITEM;
@@ -686,13 +904,13 @@ void Item::Render(ShaderProgram &program) {
 		});
 
 	texCoordData.insert(texCoordData.end(), {
+		u, v + spriteHeight,
+		u + spriteWidth, v,
 		u, v,
-		u, v + (spriteHeight),
-		u + spriteWidth, v + (spriteHeight),
 
-		u,v,
-		u + spriteWidth, v + (spriteHeight),
-		u + spriteWidth, v
+		u + spriteWidth, v,
+		u, v + spriteHeight,
+		u + spriteWidth, v + spriteHeight
 		});
 
 	glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertexData.data());
@@ -706,8 +924,10 @@ void Item::Render(ShaderProgram &program) {
 	//Translate, Rotate, Scale
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(position.x, position.y, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(TILE_SIZE, TILE_SIZE, 1));
-	program.SetModelMatrix(modelMatrix);
 
+	
+	program.SetModelMatrix(modelMatrix);
+	
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
 	glDisableVertexAttribArray(program.positionAttribute);
@@ -715,8 +935,6 @@ void Item::Render(ShaderProgram &program) {
 
 
 }
-
-
 int main(int argc, char *argv[])
 {
 
@@ -726,7 +944,7 @@ int main(int argc, char *argv[])
 	while (!done) {
 		ProcessEvents();
 
-		/*
+		
 		ticks = (float)SDL_GetTicks() / 1000.0f;
 		elapsed = ticks - lastFrameTicks;
 		lastFrameTicks = ticks;
@@ -738,11 +956,11 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		while (elapsed >= FIXED_TIMESTEP) {
-			Update(FIXED_TIMESTEP);
+			Update();
 			elapsed -= FIXED_TIMESTEP;
 		}
 		accumulator = elapsed;
-		*/
+		
 
 		Render();
 
