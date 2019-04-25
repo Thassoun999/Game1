@@ -793,6 +793,7 @@ void Player::Render(ShaderProgram &program) {
 	//Y, min(max(position.y, level height), projection height)
 	//Make sure they are all negative (except projection height)
 	//viewMatrix = glm::translate(viewMatrix, glm::vec3(max(-position.x, -(TILE_SIZE * 128.0f)) , -position.y, 0));
+	//Fix the above soon
 	viewMatrix = glm::translate(viewMatrix, glm::vec3(-position.x, -position.y, 0));
 
 	program.SetModelMatrix(modelMatrix);
