@@ -939,7 +939,7 @@ void Item::Render(ShaderProgram &program) {
 int main(int argc, char *argv[])
 {
 
-
+	//Check to see if git push
 	Setup();
 
 	while (!done) {
