@@ -94,15 +94,21 @@ public:
 		friction.x = 0.64f;
 		friction.y = 0.24f;
 
-		acceleration.x = 4.0f;
-		acceleration.y = 4.0f;
+		acceleration.x = 0.0f;
+		acceleration.y = 0.0f;
+
+		velocity.x = 0.0f;
+		velocity.y = 0.0f;
 	}
 	Player() : Entity() {
 		friction.x = 0.64f;
 		friction.y = 0.24f;
 
-		acceleration.x = 4.0f;
-		acceleration.y = 4.0f;
+		acceleration.x = 0.0f;
+		acceleration.y = 0.0f;
+
+		velocity.x = 0.0f;
+		velocity.y = 0.0f;
 	}
 	virtual void setPos(float x, float y) {
 		position.x = x;
@@ -166,8 +172,6 @@ float projectionWidth;
 float projectionHeight;
 float projectionDepth;
 
-float elapsed;
-float ticks;
 float lastFrameTicks;
 float accumulator = 0.0f;
 float timerItem = 0.0f;
@@ -364,7 +368,7 @@ void ProcessEvents() {
 
 		else if (event.type == SDL_KEYDOWN) {
 			if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && fileGameHero.collidedBottom) {
-				fileGameHero.velocity.y += 3.0f;
+				fileGameHero.velocity.y = 3.0f;
 				fileGameHero.collidedBottom = false;
 				didAJump = true;
 			}
@@ -380,9 +384,7 @@ void ProcessEvents() {
 		//Change acceleration here, velocity changes within Update function of our hero
 		//Friction will change in our update function, but only applies to our player!
 		if (!itemGot) {
-			if (fileGameHero.velocity.x <= 20.0f) {
-				fileGameHero.velocity.x += fileGameHero.acceleration.x * elapsed;
-			}
+			fileGameHero.acceleration.x = 1.0f;
 			playerSwitch = false;
 			indexForSprite++;
 			if (indexForSprite > 2) {
@@ -392,9 +394,7 @@ void ProcessEvents() {
 	}
 	else if (keys[SDL_SCANCODE_LEFT]) {
 		if (!itemGot) {
-			if (fileGameHero.velocity.x >= -20.0f) {
-				fileGameHero.velocity.x -= fileGameHero.acceleration.x * elapsed;
-			}
+			fileGameHero.acceleration.x = -1.0f;
 			playerSwitch = true;
 			indexForSprite++;
 			if (indexForSprite > 2) {
@@ -402,6 +402,12 @@ void ProcessEvents() {
 			}
 		}	
 	}
+	else {
+		fileGameHero.acceleration.x = 0.0f;
+		fileGameHero.acceleration.y = 0.0f;
+
+	}
+
 }
 
 
@@ -471,10 +477,11 @@ void Render() {
 
 	fileGameHero.Render(program);
 	
+	/*
 	for (size_t i = 0; i < fileGameEnemies.size(); i++) {
 		fileGameEnemies[i].Render(program);
 	}
-	
+	*/
 
 	
 	if (!(itemGot)) {
@@ -487,13 +494,21 @@ void Render() {
 	
 }
 
-void Update() {
+void Update(float elapsed) {
 	fileGameHero.Update(elapsed);
 	
+	/*
 	for (size_t i = 0; i < fileGameEnemies.size(); i++) {
 		fileGameEnemies[i].Update(elapsed);
 	}
-	
+	*/
+}
+
+bool validPosition(int y, int x) {
+	if (y >= 0 && x >= 0 && y < mapHeight && x < mapWidth) {
+		return true;
+	}
+	return false;
 }
 
 //This is fixed!! Apply to enemy!
@@ -503,14 +518,14 @@ void Player::CollisionX() {
 	int worldToTilexRight = (int)((position.x + (TILE_SIZE / 2.0f)) / TILE_SIZE);
 	int worldToTiley = (int)((position.y) / -TILE_SIZE);
 	//Collision!!!!
-	if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexLeft]) != staticIndex.end()) {
+	if (validPosition(worldToTiley, worldToTilexLeft) && std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexLeft]) != staticIndex.end()) {
 		//Player left hit tiled right?
 		float penetration = abs((position.x - TILE_SIZE / 2.0f) - (TILE_SIZE * worldToTilexLeft + TILE_SIZE));
 		position.x += (penetration + 0.002f);
 		collidedLeft = true;
 			
 	}
-	else if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexRight]) != staticIndex.end()) {
+	else if (validPosition(worldToTiley, worldToTilexRight) && std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTiley][worldToTilexRight]) != staticIndex.end()) {
 		//Player right hit tiled left?
 		float penetration = abs((TILE_SIZE * worldToTilexRight) - (position.x + TILE_SIZE / 2.0f));
 		position.x -= (penetration + 0.002f);
@@ -525,7 +540,7 @@ void Player::CollisionY() {
 	int worldToTilex = (int)((position.x) / TILE_SIZE);
 
 	//Collision with bottom!
-	if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyBottom][worldToTilex]) != staticIndex.end()) {
+	if (validPosition(worldToTileyBottom, worldToTilex) && std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyBottom][worldToTilex]) != staticIndex.end()) {
 		//Player bottom hit tiled top?
 		float penetration = abs((-TILE_SIZE * worldToTileyBottom) - (position.y - TILE_SIZE / 2.0f) );
 		position.y += (penetration + 0.002f);
@@ -537,7 +552,7 @@ void Player::CollisionY() {
 		}
 
 	}
-	else if (std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyTop][worldToTilex]) != staticIndex.end()) {
+	else if (validPosition(worldToTileyTop, worldToTilex) && std::find(staticIndex.begin(), staticIndex.end(), levelData[worldToTileyTop][worldToTilex]) != staticIndex.end()) {
 		//Player top hit tiled bottom?
 		float penetration = abs((position.y + TILE_SIZE / 2.0f) - (-TILE_SIZE * worldToTileyTop -TILE_SIZE) );
 		position.y -= (penetration + 0.002f);
@@ -551,14 +566,18 @@ float lerp(float v0, float v1, float t) {
 	return (1.0f - t)*v0 + t * v1;
 }
 
+
 void Player::Update(float elapsed) {
+	//Acc
+	acceleration.y = -1.0f;
+
 	//Friction
  	velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
 	velocity.y = lerp(velocity.y, 0.0f, elapsed * friction.y);
 	
-
-	//Gravity
-	velocity.y += -0.45f * elapsed;
+	//Velocity Changes
+	velocity.x += acceleration.x * elapsed;
+	velocity.y += acceleration.y * elapsed;
 
 	//Reset
 	collidedBottom = false;
@@ -572,9 +591,6 @@ void Player::Update(float elapsed) {
 
 	position.x += velocity.x * elapsed;
 	CollisionX();
-	if (collidedLeft || collidedRight) {
-		velocity.x = 0;
-	}
 
 
 
@@ -877,6 +893,7 @@ void Item::Render(ShaderProgram &program) {
 	std::vector<float> vertexData;
 	std::vector<float> texCoordData;
 
+	/*
 	timerItem += elapsed;
 	if (timerItem > 0.05f) {
 		itemIndex++;
@@ -885,6 +902,7 @@ void Item::Render(ShaderProgram &program) {
 	if (itemIndex > 2) {
 		itemIndex = 0;
 	}
+	*/
 	
 	float u = (float)(((int)itemIndex) % SPRITE_COUNT_X_ITEM) / (float)SPRITE_COUNT_X_ITEM;
 	float v = (float)(((int)itemIndex) / SPRITE_COUNT_X_ITEM) / (float)SPRITE_COUNT_Y_ITEM;
@@ -946,8 +964,8 @@ int main(int argc, char *argv[])
 		ProcessEvents();
 
 		
-		ticks = (float)SDL_GetTicks() / 1000.0f;
-		elapsed = ticks - lastFrameTicks;
+		float ticks = (float)SDL_GetTicks() / 1000.0f;
+		float elapsed = ticks - lastFrameTicks;
 		lastFrameTicks = ticks;
 
 		elapsed += accumulator;
@@ -957,7 +975,7 @@ int main(int argc, char *argv[])
 			continue;
 		}
 		while (elapsed >= FIXED_TIMESTEP) {
-			Update();
+			Update(FIXED_TIMESTEP);
 			elapsed -= FIXED_TIMESTEP;
 		}
 		accumulator = elapsed;
