@@ -105,6 +105,7 @@
     <Media Include="09 Dire, Dire Docks.mp3" />
     <Media Include="10 Lethal Lava Land.mp3" />
     <Media Include="25 Course Clear.mp3" />
+    <Media Include="341695__projectsu012__coins-1.wav" />
     <Media Include="UGH HUH.wav" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

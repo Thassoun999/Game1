@@ -104,7 +104,7 @@ location=115,56,1,1
 [Object Layer 1]
 # Hero
 type=EntityPlayer
-location=7,54,1,1
+location=7,58,1,1
 
 [Object Layer 1]
 # Slime2

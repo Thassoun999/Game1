@@ -46,7 +46,8 @@
 #include <sstream>
 
 ShaderProgram program;
-ShaderProgram program2;
+//ShaderProgram program2;
+
 SDL_Window* displayWindow;
 
 //FileReading.h
@@ -65,7 +66,7 @@ void readEntityData(std::ifstream &stream);
 std::string commandprint = "Press Return!";
 std::string titleprint = "Final Hell!";
 
-std::string gameoverCommandPrint = "Press Q To Relive Hell!";
+std::string gameoverCommandPrint = "Press TAB To Relive Hell!";
 std::string gameOver = "Gamer Over! You Died!";
 std::string secret = "Secret Shiny Haiku:";
 std::string secret1 = "I am overwhelmed,";
@@ -76,6 +77,7 @@ std::string secret3 = "Or consequences!";
 //For music
 int globalTrack = 0;
 float deadTime = 0.0f;
+bool stardead = false;
 
 enum GameMode { STATE_MAIN_MENU, STATE_GAME_SCREEN, STATE_GAME_OVER};
 GameMode mode = STATE_MAIN_MENU;
@@ -204,11 +206,10 @@ public:
 
 
 float lerp(float v0, float v1, float t);
-float easeIn(float from, float to, float time);
-float easeOut(float from, float to, float time);
-float easeInAndOut(float from, float to, float time);
-float easeOutElastic(float from, float to, float time);
+
 float mapValue(float value, float srcMin, float srcMax, float dstMin, float dstMax);
+
+float alphaVar = 0.0f;
 
 
 
@@ -216,6 +217,7 @@ float mapValue(float value, float srcMin, float srcMax, float dstMin, float dstM
 
 
 bool done = false;
+bool gameBoot = true;
 bool gotBanan = false;
 SDL_Event event;
 Player fileGameHero;
@@ -234,6 +236,9 @@ float accumulator = 0.0f;
 float timerItem = 0.0f;
 float shinytimerItem = 0.0f;
 float timerEnemy = 0.0f;
+
+float screenShake = 0.0f;
+bool playerIsHit = false;
 
 
 bool itemGot = false;
@@ -268,6 +273,7 @@ glm::mat4 viewMatrix;
 
 //Sounds
 Mix_Chunk* jumpMan;
+Mix_Chunk* shineGet;
 Mix_Music* musicNow;
 
 //Particles
@@ -346,36 +352,33 @@ float lerp(float v0, float v1, float t) {
 	return (1.0f - t)*v0 + t * v1;
 }
 
-float easeIn(float from, float to, float time) {
-	float tVal = time*time*time*time*time;
-	return (1.0f - tVal)*from + tVal * to;
-}
 
-float easeOut(float from, float to, float time) {
-	float oneMinusT = 1.0f - time;
-	float tVal = 1.0f - (oneMinusT * oneMinusT * oneMinusT * oneMinusT * oneMinusT);
-	return (1.0f - tVal)*from + tVal * to;	
-}
+void resetGame() {
+	fileGameHero.position.x = fileGameHero.initialPositions.x;
+	fileGameHero.position.y = fileGameHero.initialPositions.y;
 
-float easeInAndOut(float from, float to, float time) {
-	float tVal;
-	if (time > 0.5f) {
-		float oneMinusT = 1.0f - ((0.5f - time) * -2.0f);
-		tVal = 1.0f - ((oneMinusT * oneMinusT * oneMinusT * oneMinusT * oneMinusT) * 0.5f);
-	}
-	else {
-		time *= 2.0f;
-		tVal = (time*time*time*time*time) / 2.0f;
+	for (size_t i = 0; i < fileGameItems.size(); i++) {
+		fileGameItems[i].position.x = fileGameItems[i].initialPositions.x;
+		fileGameItems[i].position.y = fileGameItems[i].initialPositions.y;
 	}
 
-	return (1.0f - tVal)*from + tVal * to;
-}
+	for (size_t i = 0; i < fileGameEnemies.size(); i++) {
+		fileGameEnemies[i].position.x = fileGameEnemies[i].initialPositions.x;
+		fileGameEnemies[i].position.y = fileGameEnemies[i].initialPositions.y;
+	}
 
-float easeOutElastic(float from, float to, float time) {
-	float p = 0.3f;
-	float s = p / 4.0f;
-	float diff = (to - from);
-	return from + diff + (diff*pow(2.0f, -10.0f * time) * sin((time - s) * (2 * M_PI) / p));
+	gotBanan = false;
+	itemGot = false;
+	stardead = false;
+	gameBoot = true;
+
+	alphaVar = 0.0f;
+
+	indexForSprite = 0;
+	itemIndex = 0;
+	shinyItemIndex = 4;
+	slimeIndex = 0;
+	grottoIndex = 4;
 }
 
 bool readHeader(std::ifstream &stream) {
@@ -513,12 +516,16 @@ void readEntityData(std::ifstream &stream) {
 			else if (type == "EntityItemBanana") {
 				Item item(placeX, placeY);
 				item.name = "Shiny";
+				item.initialPositions.x = placeX;
+				item.initialPositions.y = placeY;
 				fileGameItems.push_back(item);
 			}
 			else if (type == "EntityItemMusic") {
 				Item item(placeX, placeY);
 				item.track = globalTrack;
 				item.name = "Music";
+				item.initialPositions.x = placeX;
+				item.initialPositions.y = placeY;
 				globalTrack++;
 				fileGameItems.push_back(item);
 			}
@@ -580,9 +587,11 @@ void ProcessEvents() {
 			else if (event.type == SDL_KEYDOWN) {
 				if (event.key.keysym.scancode == SDL_SCANCODE_RETURN) {
 					mode = STATE_GAME_SCREEN;
+					musicNow = Mix_LoadMUS("09 Dire, Dire Docks.mp3");
 					Mix_PlayMusic(musicNow, -1);
 					Mix_VolumeMusic(20);
 					//ResetGame Function
+					//program2.SetScreen(1.0f);
 
 				}
 			}
@@ -598,7 +607,7 @@ void ProcessEvents() {
 			}
 
 			else if (event.type == SDL_KEYDOWN) {
-				if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && fileGameHero.collidedBottom) {
+				if (event.key.keysym.scancode == SDL_SCANCODE_SPACE && fileGameHero.collidedBottom && itemGot == false) {
 					fileGameHero.velocity.y = 3.0f;
 					fileGameHero.collidedBottom = false;
 					didAJump = true;
@@ -651,7 +660,7 @@ void ProcessEvents() {
 				done = true;
 			}
 			else if (event.type == SDL_KEYDOWN) {
-				if (event.key.keysym.scancode == SDL_SCANCODE_BACKSPACE) {
+				if (event.key.keysym.scancode == SDL_SCANCODE_TAB) {
 					mode = STATE_MAIN_MENU;
 					//ResetGame Function
 
@@ -685,6 +694,7 @@ void Setup() {
 
 	glViewport(0, 0, screenwidth, screenheight);
 	program.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER "fragment_textured.glsl");
+	//program2.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER "fragment_textured.glsl");
 	
 	float lastFrameTicks = 0.0f;
 
@@ -720,6 +730,7 @@ void Setup() {
 	//Sounds
 	Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 4096);
 	jumpMan = Mix_LoadWAV("UGH HUH.wav");
+	shineGet = Mix_LoadWAV("341695__projectsu012__coins-1.wav");
 	musicNow = Mix_LoadMUS("09 Dire, Dire Docks.mp3");
 	//Mix_VolumeChunk(jumpMan, 20);
 	
@@ -733,11 +744,35 @@ void Render() {
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	
 	program.SetProjectionMatrix(projectionMatrix);
-	program.SetViewMatrix(viewMatrix);
+	//program2.SetProjectionMatrix(projectionMatrix);
+	
+	
+	
 
 
 	if (mode == STATE_GAME_SCREEN) {
+
+		//program2.SetAlpha(0.0f);
+		
+		viewMatrix = glm::mat4(1.0f);
+		viewMatrix = glm::translate(viewMatrix, glm::vec3(-fileGameHero.position.x, -fileGameHero.position.y, 0));
+		if (playerIsHit) {
+			if (screenShake > 1.0f) {
+				playerIsHit = false;
+			}
+			else {
+				viewMatrix = glm::translate(viewMatrix, glm::vec3(0.0f, sin(screenShake * 25.0) * 0.2, 0.0f));
+			}
+
+		}
+
+		
+
+	
+		program.SetViewMatrix(viewMatrix);
+		//program2.SetViewMatrix(viewMatrix);
 		
 
 		drawLevelData(levelData);
@@ -756,13 +791,24 @@ void Render() {
 				fileGameItems[i].Render(program);
 			}
 		}
+
+		
+
 	}
 	else if (mode == STATE_MAIN_MENU) {
+		viewMatrix = glm::mat4(1.0f);
+		program.SetViewMatrix(viewMatrix);
+		//program2.SetViewMatrix(viewMatrix);
+
 		DrawText(program, txtTexture, titleprint, 0.3f, 0.0f, -1.5f, 0.0f);
 		DrawText(program, txtTexture, commandprint, 0.1f, 0.0f, -0.6f, -0.4f);
 
 	}
 	else if (mode == STATE_GAME_OVER) {
+		viewMatrix = glm::mat4(1.0f);
+		program.SetViewMatrix(viewMatrix);
+		//program2.SetViewMatrix(viewMatrix);
+
 		DrawText(program, txtTexture, gameOver, 0.3f, 0.0f, -3.0f, 0.0f);
 		DrawText(program, txtTexture, gameoverCommandPrint, 0.1f, 0.0f, -1.1f, -0.4f);
 
@@ -783,9 +829,35 @@ void Render() {
 
 void Update(float elapsed) {
 	if (mode == STATE_MAIN_MENU) {
-
+		resetGame();
 	}
 	else if (mode == STATE_GAME_SCREEN) {
+		deadTime += elapsed;
+		if (deadTime > 8.0f && stardead) {
+			gameBoot = false;
+		}
+		if (deadTime > 10.0f && stardead) {
+			mode = STATE_GAME_OVER;
+			//alphaVar = 0.0f;
+		}
+
+
+		if (gameBoot == false) {
+			alphaVar -= elapsed;
+			if (alphaVar < 0.0f) {
+				alphaVar = 0.0f;
+			}
+
+		}
+		else {
+			alphaVar += elapsed;
+			if (alphaVar > 1.0f) {
+				alphaVar = 1.0f;
+			}
+		}
+
+
+
 		fileGameHero.Update(elapsed);
 
 		
@@ -799,15 +871,16 @@ void Update(float elapsed) {
 			fileGameItems[i].Update(elapsed);
 		}
 
-
+		/*
 		animationTime = animationTime + elapsed;
 		float animationValue = mapValue(animationTime, 5.0f, 10.0f, 0.0f, 1.0f);
 		modelMatrix = glm::mat4(1.0f);
 		float xPos = lerp(0.0, 3.0, animationValue);
 		glm::translate(modelMatrix, glm::vec3(xPos, 0.0f, 0.0f));
+		*/
 	}
-	else {
-		//Reset function goes here
+	else if(mode == STATE_GAME_OVER) {
+		//resetGame();
 	}
 	
 
@@ -911,20 +984,18 @@ void Player::Update(float elapsed) {
 				fileGameItems[i].position.y = -500.0f;
 				musicNow = Mix_LoadMUS("25 Course Clear.mp3");
 				Mix_PlayMusic(musicNow, 1);
-				Mix_VolumeMusic(20);
+				Mix_VolumeMusic(40);
 
 				//Wait 10 seconds for everything to settle
-				if(deadTime < 10.0f){
-					deadTime += elapsed;
-				}
-				else {
-					mode = STATE_GAME_OVER;
-				}
+				
+				stardead = true;
+				deadTime = 0.0f;
 
 
 			}
 			else if (fileGameItems[i].name == "Shiny") {
 				gotBanan = true;
+				Mix_PlayChannel(-1, shineGet, 0);
 				fileGameItems[i].position.x = -500.0f;
 				fileGameItems[i].position.y = -500.0f;
 			}
@@ -963,10 +1034,13 @@ void Player::Update(float elapsed) {
 			position.x = checkPointPositions.x;
 			position.y = checkPointPositions.y;
 			Mix_PlayChannel(-1, jumpMan, 0);
+			playerIsHit = true;
+			screenShake = 0.0f;
+			
 		}
 	}
 	
-
+	screenShake += elapsed;
 
 }
 
@@ -1172,6 +1246,7 @@ void drawLevelData(unsigned int** levelData) {
 	modelMatrix = glm::mat4(1.0f);
 	//Translate, Rotate, Scale
 	program.SetModelMatrix(modelMatrix);
+	//program2.SetModelMatrix(modelMatrix);
 
 	glDrawArrays(GL_TRIANGLES, 0, vertexData.size() / 2);
 
@@ -1241,19 +1316,23 @@ void Player::Render(ShaderProgram &program) {
 
 	//Modify modelView here
 	modelMatrix = glm::mat4(1.0f);
-	viewMatrix = glm::mat4(1.0f);
+	//viewMatrix = glm::mat4(1.0f);
 	//Translate, Rotate, Scale
 	modelMatrix = glm::translate(modelMatrix, glm::vec3(position.x, position.y, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(TILE_SIZE, TILE_SIZE, 1));
 
-	//float scale_y = mapValue(fabs(velocity.y), 0.0, 5.0, 1.0, 1.6);
-	//float scale_x = mapValue(fabs(velocity.y), 5.0, 0.0, 0.8, 1.0);
-	//modelMatrix = glm::scale(modelMatrix, glm::vec3(scale_y, scale_x, 1.0f));
+	//Stretch and squash
+	/*
+	if (collidedBottom == false) {
+		float scale_y = mapValue(fabs(velocity.y), 0.0, 10.0, 1.0, 1.6);
+		float scale_x = mapValue(fabs(velocity.y), 10.0, 0.0, 0.8, 1.0);
+		modelMatrix = glm::scale(modelMatrix, glm::vec3(scale_x, scale_y, 1.0f));
+	}
+	*/
 
 	if (playerSwitch) {
 		modelMatrix = glm::scale(modelMatrix, glm::vec3(-1.0f, 1.0f, 1.0f));
 	}
-
 	
 
 	//X, min(max(position.x, level width), -projection width)
@@ -1262,10 +1341,11 @@ void Player::Render(ShaderProgram &program) {
 	//viewMatrix = glm::translate(viewMatrix, glm::vec3(max(-position.x, -(TILE_SIZE * 128.0f)) , -position.y, 0));
 	//Fix the above soon
 
-	viewMatrix = glm::translate(viewMatrix, glm::vec3(-position.x, -position.y, 0));
+	
 
 	program.SetModelMatrix(modelMatrix);
-	program.SetViewMatrix(viewMatrix);
+	//program2.SetModelMatrix(modelMatrix);
+	//program.SetViewMatrix(viewMatrix);
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -1334,6 +1414,7 @@ void Enemy::Render(ShaderProgram &program) {
 	}
 
 	program.SetModelMatrix(modelMatrix);
+	//program2.SetModelMatrix(modelMatrix);
 
 
 
@@ -1405,12 +1486,13 @@ void Item::Render(ShaderProgram &program) {
 	modelMatrix = glm::mat4(1.0f);
 	
 	//Translate, Rotate, Scale
-	modelMatrix = glm::translate(modelMatrix, glm::vec3(position.x, position.y + noise1(hover), 0.0f));
+	modelMatrix = glm::translate(modelMatrix, glm::vec3(position.x, position.y, 0.0f));
 	modelMatrix = glm::scale(modelMatrix, glm::vec3(TILE_SIZE, TILE_SIZE, 1));
 
 	
 
 	program.SetModelMatrix(modelMatrix);
+	//program2.SetModelMatrix(modelMatrix);
 	
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -1427,6 +1509,8 @@ int main(int argc, char *argv[])
 {
 
 	//Check to see if git push
+
+	//Make a new shader, use it until our alpha thing is 0 and switch back to the old one!!
 	Setup();
 
 	while (!done) {
@@ -1457,6 +1541,7 @@ int main(int argc, char *argv[])
 	}
 
 	Mix_FreeChunk(jumpMan);
+	Mix_FreeChunk(shineGet);
 	Mix_FreeMusic(musicNow);
 	SDL_Quit();
 

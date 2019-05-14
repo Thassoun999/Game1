@@ -80,5 +80,8 @@
     <Media Include="10 Lethal Lava Land.mp3">
       <Filter>Resource Files</Filter>
     </Media>
+    <Media Include="341695__projectsu012__coins-1.wav">
+      <Filter>Resource Files</Filter>
+    </Media>
   </ItemGroup>
 </Project>
