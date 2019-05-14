@@ -478,7 +478,7 @@ void Render() {
 	fileGameHero.Render(program);
 	
 	/*
-	for (size_t i = 0; i < fileGameEnemies.size(); i++) {
+	for (size_t i = 0; i < fileGameEnemies.size(); i++) {n
 		fileGameEnemies[i].Render(program);
 	}
 	*/

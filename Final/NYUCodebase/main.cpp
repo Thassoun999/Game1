@@ -46,7 +46,7 @@
 #include <sstream>
 
 ShaderProgram program;
-//ShaderProgram program2;
+
 
 SDL_Window* displayWindow;
 
@@ -356,6 +356,9 @@ float lerp(float v0, float v1, float t) {
 void resetGame() {
 	fileGameHero.position.x = fileGameHero.initialPositions.x;
 	fileGameHero.position.y = fileGameHero.initialPositions.y;
+	fileGameHero.checkPointPositions.x = fileGameHero.initialPositions.x;
+	fileGameHero.checkPointPositions.y = fileGameHero.initialPositions.y;
+
 
 	for (size_t i = 0; i < fileGameItems.size(); i++) {
 		fileGameItems[i].position.x = fileGameItems[i].initialPositions.x;
@@ -591,8 +594,7 @@ void ProcessEvents() {
 					Mix_PlayMusic(musicNow, -1);
 					Mix_VolumeMusic(20);
 					//ResetGame Function
-					//program2.SetScreen(1.0f);
-
+					
 				}
 			}
 		}
@@ -694,7 +696,7 @@ void Setup() {
 
 	glViewport(0, 0, screenwidth, screenheight);
 	program.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER "fragment_textured.glsl");
-	//program2.Load(RESOURCE_FOLDER"vertex_textured.glsl", RESOURCE_FOLDER "fragment_textured.glsl");
+	
 	
 	float lastFrameTicks = 0.0f;
 
@@ -746,7 +748,7 @@ void Render() {
 
 	
 	program.SetProjectionMatrix(projectionMatrix);
-	//program2.SetProjectionMatrix(projectionMatrix);
+	
 	
 	
 	
@@ -754,7 +756,7 @@ void Render() {
 
 	if (mode == STATE_GAME_SCREEN) {
 
-		//program2.SetAlpha(0.0f);
+		program.SetAlpha(alphaVar);
 		
 		viewMatrix = glm::mat4(1.0f);
 		viewMatrix = glm::translate(viewMatrix, glm::vec3(-fileGameHero.position.x, -fileGameHero.position.y, 0));
@@ -772,7 +774,7 @@ void Render() {
 
 	
 		program.SetViewMatrix(viewMatrix);
-		//program2.SetViewMatrix(viewMatrix);
+		
 		
 
 		drawLevelData(levelData);
@@ -796,18 +798,20 @@ void Render() {
 
 	}
 	else if (mode == STATE_MAIN_MENU) {
+		program.SetAlpha(1.0f);
 		viewMatrix = glm::mat4(1.0f);
 		program.SetViewMatrix(viewMatrix);
-		//program2.SetViewMatrix(viewMatrix);
+		
 
 		DrawText(program, txtTexture, titleprint, 0.3f, 0.0f, -1.5f, 0.0f);
 		DrawText(program, txtTexture, commandprint, 0.1f, 0.0f, -0.6f, -0.4f);
 
 	}
 	else if (mode == STATE_GAME_OVER) {
+		program.SetAlpha(1.0f);
 		viewMatrix = glm::mat4(1.0f);
 		program.SetViewMatrix(viewMatrix);
-		//program2.SetViewMatrix(viewMatrix);
+		
 
 		DrawText(program, txtTexture, gameOver, 0.3f, 0.0f, -3.0f, 0.0f);
 		DrawText(program, txtTexture, gameoverCommandPrint, 0.1f, 0.0f, -1.1f, -0.4f);
@@ -1246,7 +1250,7 @@ void drawLevelData(unsigned int** levelData) {
 	modelMatrix = glm::mat4(1.0f);
 	//Translate, Rotate, Scale
 	program.SetModelMatrix(modelMatrix);
-	//program2.SetModelMatrix(modelMatrix);
+	
 
 	glDrawArrays(GL_TRIANGLES, 0, vertexData.size() / 2);
 
@@ -1344,8 +1348,7 @@ void Player::Render(ShaderProgram &program) {
 	
 
 	program.SetModelMatrix(modelMatrix);
-	//program2.SetModelMatrix(modelMatrix);
-	//program.SetViewMatrix(viewMatrix);
+	
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -1414,7 +1417,7 @@ void Enemy::Render(ShaderProgram &program) {
 	}
 
 	program.SetModelMatrix(modelMatrix);
-	//program2.SetModelMatrix(modelMatrix);
+	
 
 
 
@@ -1492,7 +1495,7 @@ void Item::Render(ShaderProgram &program) {
 	
 
 	program.SetModelMatrix(modelMatrix);
-	//program2.SetModelMatrix(modelMatrix);
+	
 	
 
 	glDrawArrays(GL_TRIANGLES, 0, 6);

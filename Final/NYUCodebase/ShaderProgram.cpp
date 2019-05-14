@@ -25,14 +25,14 @@ void ShaderProgram::Load(const char *vertexShaderFile, const char *fragmentShade
     viewMatrixUniform = glGetUniformLocation(programID, "viewMatrix");
 	colorUniform = glGetUniformLocation(programID, "color");
 	alphaUniform = glGetUniformLocation(programID, "alphaVar");
-	blackScreenUniform = glGetUniformLocation(programID, "blackScreen");
+	
     
     positionAttribute = glGetAttribLocation(programID, "position");
     texCoordAttribute = glGetAttribLocation(programID, "texCoord");
 	
 	SetColor(1.0f, 1.0f, 1.0f, 1.0f);
 	SetAlpha(1.0f);
-	SetScreen(0.0f);
+	
     
 }
 
@@ -97,10 +97,7 @@ void ShaderProgram::SetAlpha(float a) {
 	glUniform1f(alphaUniform, a);
 }
 
-void ShaderProgram::SetScreen(float b) {
-	glUseProgram(programID);
-	glUniform1f(blackScreenUniform, b);
-}
+
 
 void ShaderProgram::SetViewMatrix(const glm::mat4 &matrix) {
     glUseProgram(programID);
