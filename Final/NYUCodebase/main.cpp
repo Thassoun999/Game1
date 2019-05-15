@@ -276,6 +276,8 @@ Mix_Chunk* jumpMan;
 Mix_Chunk* shineGet;
 Mix_Music* musicNow;
 
+
+
 //Particles
 float animationTime = 0.0f;
 
@@ -554,8 +556,8 @@ GLuint LoadTexture(const char *filepath) {
 
 	glBindTexture(GL_TEXTURE_2D, retTexture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	stbi_image_free(image);
 	return retTexture;
 
@@ -760,6 +762,7 @@ void Render() {
 		
 		viewMatrix = glm::mat4(1.0f);
 		viewMatrix = glm::translate(viewMatrix, glm::vec3(-fileGameHero.position.x, -fileGameHero.position.y, 0));
+
 		if (playerIsHit) {
 			if (screenShake > 1.0f) {
 				playerIsHit = false;
@@ -951,7 +954,7 @@ void Player::CollisionY() {
 
 void Player::Update(float elapsed) {
 	//Acc
-	acceleration.y = -1.0f;
+	acceleration.y = -1.0f; //later
 
 	//Friction
 	velocity.x = lerp(velocity.x, 0.0f, elapsed * friction.x);
